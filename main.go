@@ -1,16 +1,34 @@
 package main
 
 import (
+	"time"
+
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/gizak/termui"
 )
 
 const (
-	barHeight   = 3
-	minHeight   = 10
-	xResolution = 200
+	barHeight  = 3
+	maxTicks   = 4
+	timeFmt    = "15:04:05"
+	xAxisWidth = 15
+	xTime      = 30 * time.Second
 )
+
+var (
+	width, height int
+)
+
+func init() {
+	var err error
+	width, height, err = terminal.GetSize(0)
+	if err != nil {
+		panic(err)
+	}
+	width -= xAxisWidth
+	height = (height - barHeight) / 2
+}
 
 func newPar(label string) *termui.Par {
 	par := termui.NewPar("")
@@ -41,27 +59,29 @@ func newGauge(label string) *termui.Gauge {
 	return gauge
 }
 
-func maxHeight() int {
-	_, height, err := terminal.GetSize(0)
-	if err != nil {
-		return minHeight
-	}
-	return (height - barHeight) / 2
-}
-
 func newLineChart(label string) *termui.LineChart {
 	lineChart := termui.NewLineChart()
 
 	lineChart.AxesColor = termui.ColorWhite
 	lineChart.BorderLabel = label
 	lineChart.BorderLabelFg = termui.ColorWhite
-	lineChart.Data = make([]float64, xResolution)
-	lineChart.DataLabels = make([]string, xResolution)
-	lineChart.Height = maxHeight()
+	lineChart.Data = make([]float64, width)
+	lineChart.DataLabels = make([]string, width)
+	lineChart.Height = height
 	lineChart.LineColor = termui.ColorGreen | termui.AttrBold
 	lineChart.Mode = "dot"
 
 	return lineChart
+}
+
+func addTimeLabels(lc *termui.LineChart) {
+	t := time.Now()
+
+	for tick := 0; tick < maxTicks; tick++ {
+		tickIdx := tick * width / maxTicks
+		offset := time.Duration(maxTicks-tick) * (xTime / maxTicks)
+		lc.DataLabels[tickIdx] = t.Add(-offset).Format(timeFmt)
+	}
 }
 
 func main() {
@@ -92,6 +112,9 @@ func main() {
 	})
 
 	termui.Handle("/timer/1s", func(e termui.Event) {
+		addTimeLabels(liveHeap)
+		addTimeLabels(goalHeap)
+
 		termui.Render(termui.Body)
 	})
 
