@@ -9,27 +9,35 @@ import (
 )
 
 var (
-	mu                 sync.Mutex
-	gcCounter, stwTime int
-	gcPercent          *termui.Gauge
-	gcRate             *termui.Par
-	liveHeap, goalHeap *termui.LineChart
-	wallTime, cpuTime  *termui.BarChart
+	dataMutex, renderMutex sync.Mutex
+	gcCounter, stwTime     int
+	gcPercent              *termui.Gauge
+	gcRate                 *termui.Par
+	liveHeap, goalHeap     *termui.LineChart
+	wallTime, cpuTime      *termui.BarChart
 )
+
+func render() {
+	renderMutex.Lock()
+	defer renderMutex.Unlock()
+	termui.Render(termui.Body)
+}
 
 func refreshGCSummary() {
 	ticker := time.NewTicker(5 * time.Second)
 
 	for range ticker.C {
+		dataMutex.Lock()
+
 		gcRate.Text = strconv.Itoa(gcCounter / 5)
 		gcPercent.Percent = 100 * stwTime / 5e6
 
-		termui.Render(termui.Body)
-
-		mu.Lock()
 		gcCounter = 0
 		stwTime = 0
-		mu.Unlock()
+
+		dataMutex.Unlock()
+
+		render()
 	}
 }
 
@@ -48,11 +56,13 @@ func refreshGraphs(data gcInfo) {
 		data.cpuTime.markTermination,
 	}
 
-	mu.Lock()
+	dataMutex.Lock()
 	gcCounter++
 	stwTime += data.wallTime.sweepTermination
 	stwTime += data.wallTime.markTermination
-	mu.Unlock()
+	dataMutex.Unlock()
+
+	render()
 }
 
 func sendEvents() {
@@ -100,11 +110,10 @@ func main() {
 		if data, ok := e.Data.(gcInfo); ok {
 			refreshGraphs(data)
 
-			termui.Render(termui.Body)
 		}
 	})
 
-	termui.Render(termui.Body)
+	render()
 
 	go sendEvents()
 
