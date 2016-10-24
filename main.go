@@ -72,22 +72,29 @@ func sendEvents() {
 	}
 }
 
-func main() {
-	if err := termui.Init(); err != nil {
-		panic(err)
-	}
-	defer termui.Close()
-
+func initWidgets() {
 	gcPercent = newGauge("Percentage of Time Spent in STW GC")
 	gcRate = newPar("GC Events per Second")
 
 	liveHeap = newLineChart("Live heap size, MB")
 	goalHeap = newLineChart("Goal heap size, MB")
 
-	wallTime = newBarChart("Wall-clock time, us",
-		[]string{"STW Sweep Termination", "Concurrent Mark & Swap", "STW Mark Termination"})
-	cpuTime = newBarChart("CPU time, us",
-		[]string{"STW Sweep Termination", "Concurrent Mark & Swap", "STW Mark Termination"})
+	phases := []string{
+		"STW Sweep Termination",
+		"Concurrent Mark & Swap",
+		"STW Mark Termination",
+	}
+	wallTime = newBarChart("Wall-clock time, us", phases)
+	cpuTime = newBarChart("CPU time, us", phases)
+}
+
+func main() {
+	if err := termui.Init(); err != nil {
+		panic(err)
+	}
+	defer termui.Close()
+
+	initWidgets()
 
 	termui.Body.AddRows(
 		termui.NewRow(
