@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "kTxD5F91IRtVs1vsYoKh+q1f44k=",
+			"checksumSHA1": "tmhXaTt+4nlU4ZE3S7QA0JO+5Pk=",
 			"path": "github.com/gizak/termui",
-			"revision": "f309f2b73cb43f0fa7a31d89e0f7efbb6c51e005",
-			"revisionTime": "2016-10-17T17:12:21Z"
+			"revision": "a7e3aeef4cdf9fa2edb723b1541cb69b7bb089ea",
+			"revisionTime": "2016-10-24T02:17:13Z"
 		},
 		{
 			"checksumSHA1": "yf185lmVPcvXjLZuPT1s4JzxI18=",

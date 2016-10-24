@@ -1,22 +1,64 @@
 package main
 
 import (
-	"golang.org/x/crypto/ssh/terminal"
+	"strconv"
+	"sync"
+	"time"
 
 	"github.com/gizak/termui"
 )
 
 var (
-	width, height int
+	mu                 sync.Mutex
+	gcCounter, stwTime int
+	gcPercent          *termui.Gauge
+	gcRate             *termui.Par
+	liveHeap, goalHeap *termui.LineChart
+	wallTime, cpuTime  *termui.BarChart
 )
 
-func init() {
-	termWidth, termHeight, err := terminal.GetSize(0)
-	if err != nil {
-		panic(err)
+func refreshGCSummary() {
+	ticker := time.NewTicker(5 * time.Second)
+
+	for range ticker.C {
+		gcRate.Text = strconv.Itoa(gcCounter / 5)
+		gcPercent.Percent = 100 * stwTime / 5e6
+
+		termui.Render(termui.Body)
+
+		mu.Lock()
+		gcCounter = 0
+		stwTime = 0
+		mu.Unlock()
 	}
-	width = termWidth
-	height = (termHeight - gaugeHeight) / 3
+}
+
+func refreshGraphs(data gcInfo) {
+	liveHeap.Data = append(liveHeap.Data[1:], data.size.live)
+	goalHeap.Data = append(goalHeap.Data[1:], data.size.goal)
+
+	wallTime.Data = []int{
+		data.wallTime.sweepTermination,
+		data.wallTime.markAndSwap,
+		data.wallTime.markTermination,
+	}
+	cpuTime.Data = []int{
+		data.cpuTime.sweepTermination,
+		data.cpuTime.markAndSwap,
+		data.cpuTime.markTermination,
+	}
+
+	mu.Lock()
+	gcCounter++
+	stwTime += data.wallTime.sweepTermination
+	stwTime += data.wallTime.markTermination
+	mu.Unlock()
+}
+
+func sendEvents() {
+	for data := range readStdin() {
+		termui.SendCustomEvt("/feed", data)
+	}
 }
 
 func main() {
@@ -25,17 +67,16 @@ func main() {
 	}
 	defer termui.Close()
 
-	gcPercent := newGauge("Percentage of Time Spent in GC")
+	gcPercent = newGauge("Percentage of Time Spent in GC")
+	gcRate = newPar("GC Events per Second")
 
-	gcRate := newPar("GC Events per Minute")
+	liveHeap = newLineChart("Live heap size, MB")
+	goalHeap = newLineChart("Goal heap size, MB")
 
-	liveHeap := newLineChart("Live heap size, MB")
-	goalHeap := newLineChart("Goal heap size, MB")
-
-	wallTime := newBarChart("Wall-clock time, us",
-		[]string{"Sweep Termination", "Mark & Swap", "Mark Termination"}, false)
-	cpuTime := newBarChart("CPU time, us",
-		[]string{"Assist", "Background GC", "Idle GC"}, false)
+	wallTime = newBarChart("Wall-clock time, us",
+		[]string{"STW Sweep Termination", "Concurrent Mark & Swap", "STW Mark Termination"})
+	cpuTime = newBarChart("CPU time, us",
+		[]string{"STW Sweep Termination", "Concurrent Mark & Swap", "STW Mark Termination"})
 
 	termui.Body.AddRows(
 		termui.NewRow(
@@ -55,9 +96,19 @@ func main() {
 		termui.StopLoop()
 	})
 
-	termui.Handle("/timer/1s", func(e termui.Event) {
-		termui.Render(termui.Body)
+	termui.Handle("/feed", func(e termui.Event) {
+		if data, ok := e.Data.(gcInfo); ok {
+			refreshGraphs(data)
+
+			termui.Render(termui.Body)
+		}
 	})
+
+	termui.Render(termui.Body)
+
+	go sendEvents()
+
+	go refreshGCSummary()
 
 	termui.Loop()
 }
