@@ -8,6 +8,10 @@ import (
 	"github.com/gizak/termui"
 )
 
+const (
+	refreshInterval = 2
+)
+
 var (
 	dataMutex, renderMutex sync.Mutex
 	gcCounter, stwTime     int
@@ -24,20 +28,18 @@ func render() {
 }
 
 func refreshGCSummary() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(refreshInterval * time.Second)
 
 	for range ticker.C {
 		dataMutex.Lock()
 
-		gcRate.Text = strconv.Itoa(gcCounter / 5)
-		gcPercent.Percent = 100 * stwTime / 5e6
+		gcRate.Text = strconv.Itoa(gcCounter / refreshInterval)
+		gcPercent.Percent = 100 * stwTime / refreshInterval / 1e6
 
 		gcCounter = 0
 		stwTime = 0
 
 		dataMutex.Unlock()
-
-		render()
 	}
 }
 
