@@ -31,15 +31,16 @@ func refreshGCSummary() {
 	ticker := time.NewTicker(refreshInterval * time.Second)
 
 	for range ticker.C {
-		dataMutex.Lock()
+		go func() {
+			dataMutex.Lock()
+			defer dataMutex.Unlock()
 
-		gcRate.Text = strconv.Itoa(gcCounter / refreshInterval)
-		gcPercent.Percent = 100 * stwTime / refreshInterval / 1e6
+			gcRate.Text = strconv.Itoa(gcCounter / refreshInterval)
+			gcPercent.Percent = 100 * stwTime / refreshInterval / 1e6
 
-		gcCounter = 0
-		stwTime = 0
-
-		dataMutex.Unlock()
+			gcCounter = 0
+			stwTime = 0
+		}()
 	}
 }
 
@@ -63,8 +64,6 @@ func refreshGraphs(data gcInfo) {
 	stwTime += data.wallTime.sweepTermination
 	stwTime += data.wallTime.markTermination
 	dataMutex.Unlock()
-
-	render()
 }
 
 func sendEvents() {
@@ -79,7 +78,7 @@ func main() {
 	}
 	defer termui.Close()
 
-	gcPercent = newGauge("Percentage of Time Spent in GC")
+	gcPercent = newGauge("Percentage of Time Spent in STW GC")
 	gcRate = newPar("GC Events per Second")
 
 	liveHeap = newLineChart("Live heap size, MB")
@@ -111,7 +110,7 @@ func main() {
 	termui.Handle("/feed", func(e termui.Event) {
 		if data, ok := e.Data.(gcInfo); ok {
 			refreshGraphs(data)
-
+			render()
 		}
 	})
 
