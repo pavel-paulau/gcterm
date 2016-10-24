@@ -1,19 +1,9 @@
 package main
 
 import (
-	"time"
-
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/gizak/termui"
-)
-
-const (
-	barHeight  = 3
-	maxTicks   = 4
-	timeFmt    = "15:04:05"
-	xAxisWidth = 15
-	xTime      = 30 * time.Second
 )
 
 var (
@@ -21,23 +11,12 @@ var (
 )
 
 func init() {
-	var err error
-	width, height, err = terminal.GetSize(0)
+	termWidth, termHeight, err := terminal.GetSize(0)
 	if err != nil {
 		panic(err)
 	}
-	width -= xAxisWidth
-	height = (height - barHeight) / 2
-}
-
-func addTimeLabels(lc *termui.LineChart) {
-	t := time.Now()
-
-	for tick := 0; tick < maxTicks; tick++ {
-		tickIdx := tick * width / maxTicks
-		offset := time.Duration(maxTicks-tick) * (xTime / maxTicks)
-		lc.DataLabels[tickIdx] = t.Add(-offset).Format(timeFmt)
-	}
+	width = termWidth
+	height = (termHeight - gaugeHeight) / 3
 }
 
 func main() {
@@ -46,11 +25,17 @@ func main() {
 	}
 	defer termui.Close()
 
-	gcRate := newPar("GC events per minute")
-	gcPercent := newGauge("Percentage of time spent in GC since program start")
+	gcPercent := newGauge("Percentage of Time Spent in GC")
+
+	gcRate := newPar("GC Events per Minute")
 
 	liveHeap := newLineChart("Live heap size, MB")
 	goalHeap := newLineChart("Goal heap size, MB")
+
+	wallTime := newBarChart("Wall-clock time, us",
+		[]string{"Sweep Termination", "Mark & Swap", "Mark Termination"}, false)
+	cpuTime := newBarChart("CPU time, us",
+		[]string{"Assist", "Background GC", "Idle GC"}, false)
 
 	termui.Body.AddRows(
 		termui.NewRow(
@@ -59,7 +44,10 @@ func main() {
 		termui.NewRow(
 			termui.NewCol(12, 0, liveHeap)),
 		termui.NewRow(
-			termui.NewCol(12, 0, goalHeap)))
+			termui.NewCol(12, 0, goalHeap)),
+		termui.NewRow(
+			termui.NewCol(6, 0, wallTime),
+			termui.NewCol(6, 0, cpuTime)))
 
 	termui.Body.Align()
 
@@ -68,9 +56,6 @@ func main() {
 	})
 
 	termui.Handle("/timer/1s", func(e termui.Event) {
-		addTimeLabels(liveHeap)
-		addTimeLabels(goalHeap)
-
 		termui.Render(termui.Body)
 	})
 
