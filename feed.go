@@ -139,11 +139,47 @@ func parseGoal(s string) (float64, error) {
 	return float64(size), nil
 }
 
-// readStdin reads gctrace lines from standard input and emits information about
-// GC events.
+// extractInfo orchestrates gctrace parsers and returns an aggregated summary.
 //
 // gc # @#s #%: #+#+# ms clock, #+#/#/#+# ms cpu, #->#-># MB, # MB goal, # P
 //
+func extractInfo(s string) (gcInfo, error) {
+	fields := strings.Split(s, " ")
+	if len(fields) != 17 {
+		return gcInfo{}, errors.New("bad input gctrace line")
+	}
+
+	wallTime, err := parseClock(fields[4])
+	if err != nil {
+		return gcInfo{}, err
+	}
+
+	cpuTime, err := parseCPU(fields[7])
+	if err != nil {
+		return gcInfo{}, err
+	}
+
+	live, err := parseLive(fields[10])
+	if err != nil {
+		return gcInfo{}, err
+	}
+	goal, err := parseGoal(fields[12])
+	if err != nil {
+		return gcInfo{}, err
+	}
+
+	return gcInfo{
+		size: heapSize{
+			live: live,
+			goal: goal,
+		},
+		wallTime: wallTime,
+		cpuTime:  cpuTime,
+	}, nil
+}
+
+// readStdin reads gctrace lines from standard input and emits information about
+// GC events.
 func readStdin() <-chan gcInfo {
 	ch := make(chan gcInfo)
 
@@ -152,39 +188,10 @@ func readStdin() <-chan gcInfo {
 
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			fields := strings.Split(scanner.Text(), " ")
-			if len(fields) != 17 {
-				continue
+			info, err := extractInfo(scanner.Text())
+			if err == nil {
+				ch <- info
 			}
-
-			info := gcInfo{}
-
-			wallTime, err := parseClock(fields[4])
-			if err != nil {
-				continue
-			}
-			info.wallTime = wallTime
-
-			cpuTime, err := parseCPU(fields[7])
-			if err != nil {
-				continue
-			}
-			info.cpuTime = cpuTime
-
-			live, err := parseLive(fields[10])
-			if err != nil {
-				continue
-			}
-			goal, err := parseGoal(fields[12])
-			if err != nil {
-				continue
-			}
-			info.size = heapSize{
-				live: live,
-				goal: goal,
-			}
-
-			ch <- info
 		}
 	}()
 
