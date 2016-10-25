@@ -91,12 +91,7 @@ func initWidgets() {
 	cpuTime = newBarChart("CPU time, us", phases)
 }
 
-func main() {
-	if err := termui.Init(); err != nil {
-		panic(err)
-	}
-	defer termui.Close()
-
+func buildLayout() {
 	initWidgets()
 
 	termui.Body.AddRows(
@@ -112,7 +107,9 @@ func main() {
 			termui.NewCol(6, 0, cpuTime)))
 
 	termui.Body.Align()
+}
 
+func assignHandlers() {
 	termui.Handle("/sys/kbd/q", func(termui.Event) {
 		termui.StopLoop()
 	})
@@ -122,11 +119,19 @@ func main() {
 			updateCharts(data)
 		}
 	})
+}
+
+func main() {
+	if err := termui.Init(); err != nil {
+		panic(err)
+	}
+	defer termui.Close()
+
+	buildLayout()
+	assignHandlers()
 
 	go render()
-
 	go sendEvents()
-
 	go updateSummary()
 
 	termui.Loop()
