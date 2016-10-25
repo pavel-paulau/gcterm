@@ -9,34 +9,37 @@ import (
 )
 
 const (
-	refreshInterval = 2
+	calcInterval      = 2
+	renderingInterval = 250 * time.Millisecond
 )
 
 var (
-	dataMutex, renderMutex sync.Mutex
-	gcCounter, stwTime     int
-	gcPercent              *termui.Gauge
-	gcRate                 *termui.Par
-	liveHeap, goalHeap     *termui.LineChart
-	wallTime, cpuTime      *termui.BarChart
+	mu                 sync.Mutex
+	gcCounter, stwTime int
+	gcPercent          *termui.Gauge
+	gcRate             *termui.Par
+	liveHeap, goalHeap *termui.LineChart
+	wallTime, cpuTime  *termui.BarChart
 )
 
 func render() {
-	renderMutex.Lock()
-	defer renderMutex.Unlock()
-	termui.Render(termui.Body)
+	ticker := time.NewTicker(renderingInterval)
+
+	for range ticker.C {
+		termui.Render(termui.Body)
+	}
 }
 
-func refreshGCSummary() {
-	ticker := time.NewTicker(refreshInterval * time.Second)
+func updateSummary() {
+	ticker := time.NewTicker(calcInterval * time.Second)
 
 	for range ticker.C {
 		go func() {
-			dataMutex.Lock()
-			defer dataMutex.Unlock()
+			mu.Lock()
+			defer mu.Unlock()
 
-			gcRate.Text = strconv.Itoa(gcCounter / refreshInterval)
-			gcPercent.Percent = 100 * stwTime / refreshInterval / 1e6
+			gcRate.Text = strconv.Itoa(gcCounter / calcInterval)
+			gcPercent.Percent = 100 * stwTime / calcInterval / 1e6
 
 			gcCounter = 0
 			stwTime = 0
@@ -44,7 +47,7 @@ func refreshGCSummary() {
 	}
 }
 
-func refreshGraphs(data gcInfo) {
+func updateCharts(data gcInfo) {
 	liveHeap.Data = append(liveHeap.Data[1:], data.size.live)
 	goalHeap.Data = append(goalHeap.Data[1:], data.size.goal)
 
@@ -59,11 +62,11 @@ func refreshGraphs(data gcInfo) {
 		data.cpuTime.markTermination,
 	}
 
-	dataMutex.Lock()
+	mu.Lock()
 	gcCounter++
 	stwTime += data.wallTime.sweepTermination
 	stwTime += data.wallTime.markTermination
-	dataMutex.Unlock()
+	mu.Unlock()
 }
 
 func sendEvents() {
@@ -116,16 +119,15 @@ func main() {
 
 	termui.Handle("/feed", func(e termui.Event) {
 		if data, ok := e.Data.(gcInfo); ok {
-			refreshGraphs(data)
-			render()
+			updateCharts(data)
 		}
 	})
 
-	render()
+	go render()
 
 	go sendEvents()
 
-	go refreshGCSummary()
+	go updateSummary()
 
 	termui.Loop()
 }
