@@ -5,6 +5,8 @@
 [![Build Status](https://travis-ci.org/pavel-paulau/gcterm.svg?branch=master)](https://travis-ci.org/pavel-paulau/gcterm)
 [![Coverage Status](https://coveralls.io/repos/github/pavel-paulau/gcterm/badge.svg?branch=master)](https://coveralls.io/github/pavel-paulau/gcterm?branch=master)
 
+![Demo](http://imgur.com/hoh4b2O.png)
+
 # Usage
 
 First, enable [tracing of GC events](https://golang.org/pkg/runtime/) in your application using the GODEBUG variable:
