@@ -132,7 +132,7 @@ func detectPipe() {
 	if err != nil {
 		panic(err)
 	}
-	if fi.Mode() & os.ModeCharDevice != 0 {
+	if fi.Mode()&os.ModeCharDevice != 0 {
 		fmt.Println("Data pipe is required")
 		os.Exit(1)
 	}
