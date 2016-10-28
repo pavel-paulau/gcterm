@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -121,7 +123,22 @@ func assignHandlers() {
 	})
 }
 
+// detectPipe interrupts execution if there is nothing to read from standard
+// input.
+func detectPipe() {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		panic(err)
+	}
+	if fi.Mode() & os.ModeCharDevice != 0 {
+		fmt.Println("Data pipe is required")
+		os.Exit(1)
+	}
+}
+
 func main() {
+	detectPipe()
+
 	if err := termui.Init(); err != nil {
 		panic(err)
 	}
