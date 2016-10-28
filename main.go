@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	calcInterval      = 2
+	calcInterval      = 5
 	renderingInterval = 250 * time.Millisecond
 )
 
