@@ -111,8 +111,10 @@ func buildLayout() {
 	termui.Body.Align()
 }
 
+// assignHandlers breaks UI loop on any keystroke and also connects UI
+// components to events from standard input.
 func assignHandlers() {
-	termui.Handle("/sys/kbd/q", func(termui.Event) {
+	termui.Handle("/sys/kbd", func(termui.Event) {
 		termui.StopLoop()
 	})
 
